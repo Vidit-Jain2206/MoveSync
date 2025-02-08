@@ -61,6 +61,7 @@ io.on("connection", (socket) => {
             newOrder.customerId = id;
             await newOrder.save();
             sub.subscribe(`location:${orderId}`);
+            sub.subscribe(`notification:${orderId}`);
           } catch (error) {
             console.error("Error subscribing to location:", error);
             socket.emit("error", "Error subscribing to location");
@@ -122,6 +123,22 @@ io.on("connection", (socket) => {
     }
   );
 
+  // driver reached
+  socket.on("driver:reached", async (orderId) => {
+    // send notification to user that driver has reached
+    await pub.publish(
+      `notification:${orderId}`,
+      JSON.stringify({
+        type: "DRIVER_REACHED",
+        orderId: orderId,
+        message: "Driver has reached",
+        timestamp: Date.now(),
+      })
+    );
+    socket.leave(orderId);
+    console.log(`Driver ${socket.id} left room: ${orderId}`);
+  });
+
   socket.on("disconnect", async () => {
     const orderId = socket.data.orderId;
     if (!orderId) return;
@@ -145,9 +162,20 @@ io.on("connection", (socket) => {
 
 sub.on("message", (channel, message) => {
   try {
+    const channelName = channel.split(":")[0];
     const orderId = channel.split(":")[1];
     const data = JSON.parse(message);
-    io.to(orderId).emit("driver-location", data);
+    if (channelName === "notifications") {
+      io.to(orderId).emit("notification", {
+        type: data.type,
+        orderId: data.orderId,
+        message: data.message,
+        timestamp: data.timestamp,
+      });
+    }
+    if (channelName === "location") {
+      io.to(orderId).emit("driver-location", data);
+    }
   } catch (err) {
     console.error("Error processing Redis message:", err);
   }
