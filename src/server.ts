@@ -1,32 +1,10 @@
 import { createServer } from "http";
 import { Server } from "socket.io";
-import Redis from "ioredis";
+import { pub, sub } from "./config/redis";
+import { connection } from "./connection";
+import Order, { Location } from "./schema/Order";
 
-const pub = new Redis({
-  host: process.env.REDIS_HOST || "localhost",
-  port: Number(process.env.REDIS_PORT) || 6379,
-  retryStrategy: (times) => {
-    const delay = Math.min(times * 50, 2000);
-    return delay;
-  },
-});
-
-const sub = new Redis({
-  host: process.env.REDIS_HOST || "localhost",
-  port: Number(process.env.REDIS_PORT) || 6379,
-  retryStrategy: (times) => {
-    const delay = Math.min(times * 50, 2000);
-    return delay;
-  },
-});
-
-pub.on("error", (err) => {
-  console.error("Redis Publisher Error:", err);
-});
-
-sub.on("error", (err) => {
-  console.error("Redis Subscriber Error:", err);
-});
+connection();
 
 const app = createServer();
 const io = new Server(app, {
@@ -37,45 +15,70 @@ const io = new Server(app, {
 
 io.on("connection", (socket) => {
   console.log("a user connected");
-  socket.on("join-room", async (roomId: string, role: "driver" | "user") => {
-    try {
-      if (!roomId || !["driver", "user"].includes(role)) {
-        socket.emit("error", "Invalid room ID or role");
-        return;
-      }
+  socket.on(
+    "join-room",
+    async (
+      orderId: string,
+      role: "driver" | "user",
+      id: string,
+      location: Location
+    ) => {
+      try {
+        if (!orderId || !["driver", "user"].includes(role)) {
+          socket.emit("error", "Invalid room ID or role");
+          return;
+        }
 
-      // check if user and driver with same roomId exists or not
-      if (role === "driver") {
-        const sockets = await io.in(roomId).fetchSockets();
-        const hasDriver = sockets.some((s) => s.data.role === "driver");
-        if (hasDriver) {
-          socket.emit("error", "Driver already exists in this room");
+        const order = await Order.findOne({ orderId: orderId });
+        if (!order) {
+          socket.emit("error", "Order not found");
           return;
         }
-      }
-      socket.join(roomId);
-      socket.data.role = role;
-      socket.data.roomId = roomId;
-      if (role === "user") {
-        try {
-          sub.subscribe(`location:${roomId}`);
-        } catch (error) {
-          console.error("Error subscribing to location:", error);
-          socket.emit("error", "Error subscribing to location");
-          return;
+
+        const newOrder = new Order({
+          orderId: orderId,
+          status: "pending",
+        });
+
+        // check if user and driver with same orderId exists or not
+        if (role === "driver") {
+          const sockets = await io.in(orderId).fetchSockets();
+          const hasDriver = sockets.some((s) => s.data.role === "driver");
+          if (hasDriver) {
+            socket.emit("error", "Driver already exists in this room");
+            return;
+          }
+          newOrder.currentDriverLocation = location;
+          newOrder.driverId = id;
+          await newOrder.save();
         }
+        socket.join(orderId);
+        socket.data.role = role;
+        socket.data.orderId = orderId;
+        if (role === "user") {
+          try {
+            newOrder.userLocation = location;
+            newOrder.customerId = id;
+            await newOrder.save();
+            sub.subscribe(`location:${orderId}`);
+          } catch (error) {
+            console.error("Error subscribing to location:", error);
+            socket.emit("error", "Error subscribing to location");
+            return;
+          }
+        }
+        socket.emit("joined-room", orderId);
+        console.log(`${role} joined room: ${orderId}`);
+      } catch (error) {
+        console.error("Error joining room:", error);
+        socket.emit("error", "Error joining room");
       }
-      socket.emit("joined-room", roomId);
-      console.log(`${role} joined room: ${roomId}`);
-    } catch (error) {
-      console.error("Error joining room:", error);
-      socket.emit("error", "Error joining room");
     }
-  });
+  );
 
   socket.on(
     "update-location",
-    async (location: { lat: number; lng: number }) => {
+    async (driverId: string, location: { lat: number; lng: number }) => {
       try {
         if (
           !location ||
@@ -85,17 +88,27 @@ io.on("connection", (socket) => {
           socket.emit("error", "Invalid location data");
           return;
         }
-        const roomId = socket.data.roomId;
-        if (!roomId || socket.data.role !== "driver") return;
+        const orderId = socket.data.orderId;
+        if (!orderId || socket.data.role !== "driver") return;
 
         // Publish to Redis
         try {
           await pub.publish(
-            `location:${roomId}`,
+            `location:${orderId}`,
             JSON.stringify({
               location,
               timestamp: Date.now(),
               serverId: process.env.SERVER_ID, // Useful for debugging
+            })
+          );
+
+          // add location to redis with expiry time 5 minutes
+          await pub.setex(
+            `driver:${driverId}:current`,
+            300, // 5 minutes TTL
+            JSON.stringify({
+              location,
+              timestamp: Date.now(),
             })
           );
         } catch (err) {
@@ -110,31 +123,31 @@ io.on("connection", (socket) => {
   );
 
   socket.on("disconnect", async () => {
-    const roomId = socket.data.roomId;
-    if (!roomId) return;
-    socket.leave(roomId);
+    const orderId = socket.data.orderId;
+    if (!orderId) return;
+    socket.leave(orderId);
     if (socket.data.role === "user") {
       try {
-        await sub.unsubscribe(`location:${roomId}`);
+        await sub.unsubscribe(`location:${orderId}`);
       } catch (err) {
         console.error("Redis unsubscribe error:", err);
       }
     }
-    io.to(roomId).emit("user-disconnected", {
+    io.to(orderId).emit("user-disconnected", {
       role: socket.data.role,
       timestamp: Date.now(),
     });
 
-    console.log(`${socket.data.role} left room: ${roomId}`);
-    console.log(`${socket.data.role} left room: ${roomId}`);
+    console.log(`${socket.data.role} left room: ${orderId}`);
+    console.log(`${socket.data.role} left room: ${orderId}`);
   });
 });
 
 sub.on("message", (channel, message) => {
   try {
-    const roomId = channel.split(":")[1];
+    const orderId = channel.split(":")[1];
     const data = JSON.parse(message);
-    io.to(roomId).emit("driver-location", data);
+    io.to(orderId).emit("driver-location", data);
   } catch (err) {
     console.error("Error processing Redis message:", err);
   }
