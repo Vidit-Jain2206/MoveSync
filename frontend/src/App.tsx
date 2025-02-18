@@ -40,9 +40,9 @@ function App() {
 
   useEffect(() => {
     if (socket && orderId) {
-      socket.on("driver-location", (location: Location) => {
+      socket.on("driver-location", (location) => {
         console.log("driver-location", location);
-        setDriverLocation(location);
+        setDriverLocation(location.location);
       });
     }
   });

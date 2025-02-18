@@ -29,12 +29,6 @@ io.on("connection", (socket) => {
           return;
         }
 
-        const order = await Order.findOne({ orderId: orderId });
-        if (!order) {
-          socket.emit("error", "Order not found");
-          return;
-        }
-
         const newOrder = new Order({
           orderId: orderId,
           status: "pending",
@@ -77,51 +71,48 @@ io.on("connection", (socket) => {
     }
   );
 
-  socket.on(
-    "update-location",
-    async (driverId: string, location: { lat: number; lng: number }) => {
-      try {
-        if (
-          !location ||
-          typeof location.lat !== "number" ||
-          typeof location.lng !== "number"
-        ) {
-          socket.emit("error", "Invalid location data");
-          return;
-        }
-        const orderId = socket.data.orderId;
-        if (!orderId || socket.data.role !== "driver") return;
-
-        // Publish to Redis
-        try {
-          await pub.publish(
-            `location:${orderId}`,
-            JSON.stringify({
-              location,
-              timestamp: Date.now(),
-              serverId: process.env.SERVER_ID, // Useful for debugging
-            })
-          );
-
-          // add location to redis with expiry time 5 minutes
-          await pub.setex(
-            `driver:${driverId}:current`,
-            300, // 5 minutes TTL
-            JSON.stringify({
-              location,
-              timestamp: Date.now(),
-            })
-          );
-        } catch (err) {
-          console.error("Redis publish error:", err);
-          socket.emit("error", "Failed to update location");
-        }
-      } catch (error) {
-        console.error("Error updating location:", error);
-        socket.emit("error", "Error updating location");
+  socket.on("update-location", async (driverId: string, location: Location) => {
+    try {
+      if (
+        !location ||
+        typeof location.lat !== "number" ||
+        typeof location.lng !== "number"
+      ) {
+        socket.emit("error", "Invalid location data");
+        return;
       }
+      const orderId = socket.data.orderId;
+      if (!orderId || socket.data.role !== "driver") return;
+
+      // Publish to Redis
+      try {
+        await pub.publish(
+          `location:${orderId}`,
+          JSON.stringify({
+            location,
+            timestamp: Date.now(),
+            serverId: process.env.SERVER_ID, // Useful for debugging
+          })
+        );
+
+        // add location to redis with expiry time 5 minutes
+        await pub.setex(
+          `driver:${driverId}:current`,
+          300, // 5 minutes TTL
+          JSON.stringify({
+            location,
+            timestamp: Date.now(),
+          })
+        );
+      } catch (err) {
+        console.error("Redis publish error:", err);
+        socket.emit("error", "Failed to update location");
+      }
+    } catch (error) {
+      console.error("Error updating location:", error);
+      socket.emit("error", "Error updating location");
     }
-  );
+  });
 
   socket.on("driver:joined", async (orderId, driverId, driverLocation) => {
     // send notification to user that driver has joined

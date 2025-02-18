@@ -26,11 +26,11 @@ const orderSchema = new mongoose.Schema({
   },
   driverId: {
     type: String,
-    required: true,
+    required: false,
   },
   customerId: {
     type: String,
-    required: true,
+    required: false,
   },
   status: {
     type: String,
@@ -46,11 +46,11 @@ const orderSchema = new mongoose.Schema({
   },
   userLocation: {
     type: locationSchema,
-    required: true,
+    required: false,
   },
   currentDriverLocation: {
     type: locationSchema,
-    required: true,
+    required: false,
   },
 });
 
