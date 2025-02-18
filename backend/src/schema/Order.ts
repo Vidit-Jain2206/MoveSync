@@ -5,7 +5,6 @@ export interface Location {
   lng: number;
 }
 
-// Create a mongoose schema for Location
 const locationSchema = new mongoose.Schema(
   {
     lat: {
@@ -18,7 +17,7 @@ const locationSchema = new mongoose.Schema(
     },
   },
   { _id: false }
-); // _id: false prevents MongoDB from creating IDs for subdocuments
+);
 
 const orderSchema = new mongoose.Schema({
   orderId: {
@@ -46,16 +45,15 @@ const orderSchema = new mongoose.Schema({
     default: Date.now,
   },
   userLocation: {
-    type: locationSchema, // Single location for user
+    type: locationSchema,
     required: true,
   },
   currentDriverLocation: {
-    type: locationSchema, // Array of locations for driver
+    type: locationSchema,
     required: true,
   },
 });
 
-// Create TypeScript interface for the Order document
 export interface IOrder extends mongoose.Document {
   orderId: string;
   driverId: string;

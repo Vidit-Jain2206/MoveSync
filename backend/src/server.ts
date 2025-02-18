@@ -123,6 +123,21 @@ io.on("connection", (socket) => {
     }
   );
 
+  socket.on("driver:joined", async (orderId, driverId) => {
+    // send notification to user that driver has joined
+    await pub.publish(
+      `notification:${orderId}`,
+      JSON.stringify({
+        type: "DRIVER_JOINED",
+        orderId: orderId,
+        driverId: driverId,
+        message: "Driver has joined",
+        timestamp: Date.now(),
+      })
+    );
+    console.log(`Driver ${driverId} joined room: ${orderId}`);
+  });
+
   // driver reached
   socket.on("driver:reached", async (orderId) => {
     // send notification to user that driver has reached
