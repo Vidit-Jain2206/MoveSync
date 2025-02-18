@@ -123,7 +123,7 @@ io.on("connection", (socket) => {
     }
   );
 
-  socket.on("driver:joined", async (orderId, driverId) => {
+  socket.on("driver:joined", async (orderId, driverId, driverLocation) => {
     // send notification to user that driver has joined
     await pub.publish(
       `notification:${orderId}`,
@@ -133,6 +133,7 @@ io.on("connection", (socket) => {
         driverId: driverId,
         message: "Driver has joined",
         timestamp: Date.now(),
+        driverLocation: driverLocation,
       })
     );
     console.log(`Driver ${driverId} joined room: ${orderId}`);
@@ -186,6 +187,7 @@ sub.on("message", (channel, message) => {
         orderId: data.orderId,
         message: data.message,
         timestamp: data.timestamp,
+        driverLocation: data.driverLocation,
       });
     }
     if (channelName === "location") {

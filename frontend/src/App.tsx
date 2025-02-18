@@ -20,12 +20,14 @@ function App() {
   const [socket, setSocket] = useState<Socket>();
 
   useEffect(() => {
-    navigator.geolocation.getCurrentPosition(async (position) => {
-      setUserLocation({
-        lat: position.coords.latitude,
-        lng: position.coords.longitude,
+    if (navigator.geolocation.getCurrentPosition) {
+      navigator.geolocation.getCurrentPosition(async (position) => {
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
       });
-    });
+    }
   }, []);
 
   useEffect(() => {
@@ -36,17 +38,27 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (socket && orderId) {
+      socket.on("driver-location", (location: Location) => {
+        console.log("driver-location", location);
+        setDriverLocation(location);
+      });
+    }
+  });
+
   const handleJoinRoom = async () => {
     try {
       if (socket) {
         const orderId = Math.floor(Math.random() * 10000000).toString();
-        socket.emit("join-room");
+        socket.emit("join-room", orderId, "user", "12341431", userLocation);
         setOrderId(orderId);
       }
     } catch (error) {
       console.error("Failed to join room:", error);
     }
   };
+
   return (
     <div className="w-screen h-screen flex flex-col bg-[#8da4f1]">
       {/* navbar */}
@@ -82,6 +94,11 @@ function App() {
           <div className="border-[1px solid #8da4f1] p-4 rounded-md shadow-md">
             <p>Latitude: {userLocation.lat}</p>
             <p>Longitude: {userLocation.lng}</p>
+          </div>
+          <h2 className="text-3xl font-bold">Driver Location</h2>
+          <div className="border-[1px solid #8da4f1] p-4 rounded-md shadow-md">
+            <p>Latitude: {driverLocation.lat}</p>
+            <p>Longitude: {driverLocation.lng}</p>
           </div>
         </div>
       </div>
