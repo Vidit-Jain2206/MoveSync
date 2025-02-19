@@ -22,13 +22,13 @@ function App() {
   useEffect(() => {
     if (navigator.geolocation.getCurrentPosition) {
       navigator.geolocation.getCurrentPosition(async (position) => {
-        setUserLocation({
+        setDriverLocation({
           lat: position.coords.latitude,
           lng: position.coords.longitude,
         });
       });
     }
-  }, []);
+  }, [driverLocation]);
 
   useEffect(() => {
     const socket = io(ENDPOINT);
@@ -39,10 +39,17 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (socket) {
+      socket.on("error", (error) => {
+        console.log(error);
+      });
+    }
+  });
+
+  useEffect(() => {
     if (socket && orderId) {
-      socket.on("driver-location", (location) => {
-        console.log("driver-location", location);
-        setDriverLocation(location.location);
+      socket.on("joined:room", (location) => {
+        setUserLocation(location);
       });
     }
   });
@@ -50,9 +57,9 @@ function App() {
   const handleJoinRoom = async () => {
     try {
       if (socket) {
-        const orderId = Math.floor(Math.random() * 10000000).toString();
-        socket.emit("join-room", orderId, "user", "12341431", userLocation);
-        setOrderId(orderId);
+        socket.emit("join-room", orderId, "driver", "12341431", driverLocation);
+        socket.emit("driver:joined", orderId, "213124", driverLocation);
+        socket.emit("update-location", "213124", driverLocation);
       }
     } catch (error) {
       console.error("Failed to join room:", error);
@@ -71,34 +78,31 @@ function App() {
         {/* room details*/}
         <div className="w-full mx-auto flex flex-col">
           <h1 className="text-3xl font-bold">Join a room</h1>
+          <input
+            type="number"
+            placeholder="Enter orderId"
+            value={orderId}
+            onChange={(e) => setOrderId(e.target.value)}
+          />
           <button
             onClick={handleJoinRoom}
             className="cursor-pointer border-2 border-[#403d71] px-5 py-2 max-w-[300px] mx-auto hover:bg-[#403d71] hover:text-[#8da4f1]"
           >
-            Generate OrderId
+            Join Room
           </button>
-          {orderId && (
-            <div className="border-[1px solid #8da4f1] p-4 rounded-md shadow-md">
-              <h2 className="text-2xl font-bold">Room ID: {orderId}</h2>
-              <p>
-                Please wait for your driver to join this room. You can use the
-                provided room ID to find your driver on the app.
-              </p>
-            </div>
-          )}
         </div>
 
         {/* user location */}
         <div className="w-full mx-auto mt-[2rem]">
           <h2 className="text-3xl font-bold">Your Location</h2>
           <div className="border-[1px solid #8da4f1] p-4 rounded-md shadow-md">
-            <p>Latitude: {userLocation.lat}</p>
-            <p>Longitude: {userLocation.lng}</p>
-          </div>
-          <h2 className="text-3xl font-bold">Driver Location</h2>
-          <div className="border-[1px solid #8da4f1] p-4 rounded-md shadow-md">
             <p>Latitude: {driverLocation.lat}</p>
             <p>Longitude: {driverLocation.lng}</p>
+          </div>
+          <h2 className="text-3xl font-bold">User Location</h2>
+          <div className="border-[1px solid #8da4f1] p-4 rounded-md shadow-md">
+            <p>Latitude: {userLocation.lat}</p>
+            <p>Longitude: {userLocation.lng}</p>
           </div>
         </div>
       </div>

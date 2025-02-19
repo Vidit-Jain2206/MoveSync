@@ -3,6 +3,7 @@ import { Server } from "socket.io";
 import { pub, sub } from "./config/redis";
 import { connection } from "./connection";
 import Order, { Location } from "./schema/Order";
+import { SocketAddress } from "net";
 
 connection();
 
@@ -42,13 +43,12 @@ io.on("connection", (socket) => {
             socket.emit("error", "Driver already exists in this room");
             return;
           }
+
           newOrder.currentDriverLocation = location;
           newOrder.driverId = id;
           await newOrder.save();
         }
-        socket.join(orderId);
-        socket.data.role = role;
-        socket.data.orderId = orderId;
+
         if (role === "user") {
           try {
             newOrder.userLocation = location;
@@ -62,7 +62,19 @@ io.on("connection", (socket) => {
             return;
           }
         }
-        socket.emit("joined-room", orderId);
+        socket.join(orderId);
+        socket.data.role = role;
+        socket.data.orderId = orderId;
+        const order = await Order.find({
+          orderId: orderId,
+        }).select({
+          orderId: true,
+          status: "pending",
+          userLocation: true,
+          createdAt: true,
+          updatedAt: true,
+        });
+        socket.emit("joined:room", order[0].userLocation);
         console.log(`${role} joined room: ${orderId}`);
       } catch (error) {
         console.error("Error joining room:", error);
@@ -172,7 +184,7 @@ sub.on("message", (channel, message) => {
     const channelName = channel.split(":")[0];
     const orderId = channel.split(":")[1];
     const data = JSON.parse(message);
-    if (channelName === "notifications") {
+    if (channelName === "notification") {
       io.to(orderId).emit("notification", {
         type: data.type,
         orderId: data.orderId,
