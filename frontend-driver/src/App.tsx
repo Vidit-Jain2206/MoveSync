@@ -4,6 +4,7 @@ import io, { Socket } from "socket.io-client";
 import { MapComponent } from "./MapComponent";
 
 const ENDPOINT = "http://localhost:3001";
+
 export interface Location {
   lat: number;
   lng: number;
@@ -21,15 +22,29 @@ function App() {
   const [socket, setSocket] = useState<Socket>();
 
   useEffect(() => {
-    if (navigator.geolocation.getCurrentPosition) {
-      navigator.geolocation.getCurrentPosition(async (position) => {
-        setDriverLocation({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
+    const interval = setInterval(() => {
+      if (navigator.geolocation.getCurrentPosition) {
+        navigator.geolocation.getCurrentPosition(async (position) => {
+          console.log(
+            new Date().toISOString(),
+            position.coords.latitude,
+            position.coords.longitude
+          );
+          setDriverLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
         });
-      });
-    }
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
   }, [driverLocation]);
+
+  useEffect(() => {
+    if (socket && orderId)
+      socket.emit("update-location", "213124", driverLocation); // replace with actual driver id
+  }, [driverLocation, orderId, socket]);
 
   useEffect(() => {
     const socket = io(ENDPOINT);
@@ -60,7 +75,6 @@ function App() {
       if (socket) {
         socket.emit("join-room", orderId, "driver", "12341431", driverLocation);
         socket.emit("driver:joined", orderId, "213124", driverLocation);
-        socket.emit("update-location", "213124", driverLocation);
       }
     } catch (error) {
       console.error("Failed to join room:", error);
@@ -107,7 +121,7 @@ function App() {
             </div>
           </div>
           <div className="w-[50%] border border-[#8da4f1] rounded-md shadow-md p-4">
-            <h2 className="text-3xl font-bold">Driver Location</h2>
+            <h2 className="text-3xl font-bold">User Location</h2>
             <div className=" mt-2  ">
               <p>Latitude: {userLocation.lat}</p>
               <p>Longitude: {userLocation.lng}</p>

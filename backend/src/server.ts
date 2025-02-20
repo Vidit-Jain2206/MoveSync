@@ -179,7 +179,7 @@ io.on("connection", (socket) => {
   });
 });
 
-sub.on("message", (channel, message) => {
+sub.on("message", async (channel, message) => {
   try {
     const channelName = channel.split(":")[0];
     const orderId = channel.split(":")[1];
@@ -194,7 +194,10 @@ sub.on("message", (channel, message) => {
       });
     }
     if (channelName === "location") {
-      io.to(orderId).emit("driver-location", data);
+      const sockets = (await io.in(orderId).fetchSockets()).filter(
+        (socket) => socket.data.role === "user"
+      );
+      sockets.map((socket) => socket.emit("driver-location", data));
     }
   } catch (err) {
     console.error("Error processing Redis message:", err);
