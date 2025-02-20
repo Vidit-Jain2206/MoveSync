@@ -49,7 +49,7 @@ export const MapComponent = ({
         position={[receivedCoordinates.lat, receivedCoordinates.lng]}
         icon={otherIcon}
       >
-        <Popup>Other User's Location</Popup>
+        <Popup>Customer's Location</Popup>
       </Marker>
     </MapContainer>
   );

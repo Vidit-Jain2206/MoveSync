@@ -93,9 +93,8 @@ function App() {
             <div className="border border-[#8da4f1] p-4 rounded-md shadow-md">
               <h2 className="text-2xl font-bold">Room ID: {orderId}</h2>
               {!isDriverJoined && (
-                <p>
-                  Please wait for your driver to join this room. You can use the
-                  provided room ID to find your driver on the app.
+                <p className="mt-2">
+                  Please wait for your driver to join this room.
                 </p>
               )}
             </div>
@@ -103,16 +102,20 @@ function App() {
         </div>
 
         {/* User Location */}
-        <div className="w-full mx-auto mt-[2rem]">
-          <h2 className="text-3xl font-bold">Your Location</h2>
-          <div className="border border-[#8da4f1] p-4 rounded-md shadow-md">
-            <p>Latitude: {userLocation.lat}</p>
-            <p>Longitude: {userLocation.lng}</p>
+        <div className="w-full mx-auto mt-[2rem] flex flex-row gap-2">
+          <div className="w-[50%] border border-[#8da4f1]  rounded-md shadow-md p-4">
+            <h2 className="text-3xl font-bold">Your Location</h2>
+            <div className="    mt-2">
+              <p>Latitude: {userLocation.lat}</p>
+              <p>Longitude: {userLocation.lng}</p>
+            </div>
           </div>
-          <h2 className="text-3xl font-bold">Driver Location</h2>
-          <div className="border border-[#8da4f1] p-4 rounded-md shadow-md">
-            <p>Latitude: {driverLocation.lat}</p>
-            <p>Longitude: {driverLocation.lng}</p>
+          <div className="w-[50%] border border-[#8da4f1] rounded-md shadow-md p-4">
+            <h2 className="text-3xl font-bold">Driver Location</h2>
+            <div className=" mt-2  ">
+              <p>Latitude: {driverLocation.lat}</p>
+              <p>Longitude: {driverLocation.lng}</p>
+            </div>
           </div>
         </div>
 

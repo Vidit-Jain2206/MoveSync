@@ -79,34 +79,41 @@ function App() {
         {/* room details*/}
         <div className="w-full mx-auto flex flex-col">
           <h1 className="text-3xl font-bold">Join a room</h1>
-          <input
-            type="number"
-            placeholder="Enter orderId"
-            value={orderId}
-            onChange={(e) => setOrderId(e.target.value)}
-          />
-          <button
-            onClick={handleJoinRoom}
-            className="cursor-pointer border-2 border-[#403d71] px-5 py-2 max-w-[300px] mx-auto hover:bg-[#403d71] hover:text-[#8da4f1]"
-          >
-            Join Room
-          </button>
+          <div className="flex flex-row gap-2 mt-2">
+            <input
+              className="border-2 border-[#403d71] w-[85%] px-4 focus:outline-none"
+              type="number"
+              placeholder="Enter orderId"
+              value={orderId}
+              min={0}
+              onChange={(e) => setOrderId(e.target.value)}
+            />
+            <button
+              onClick={handleJoinRoom}
+              className="w-[15%] cursor-pointer border-2 border-[#403d71] px-5 py-2 max-w-[300px] mx-auto hover:bg-[#403d71] hover:text-[#8da4f1]"
+            >
+              Join Room
+            </button>
+          </div>
         </div>
 
         {/* user location */}
-        <div className="w-full mx-auto mt-[2rem]">
-          <h2 className="text-3xl font-bold">Your Location</h2>
-          <div className="border-[1px solid #8da4f1] p-4 rounded-md shadow-md">
-            <p>Latitude: {driverLocation.lat}</p>
-            <p>Longitude: {driverLocation.lng}</p>
+        <div className="w-full mx-auto mt-[2rem] flex flex-row gap-2">
+          <div className="w-[50%] border border-[#8da4f1]  rounded-md shadow-md p-4">
+            <h2 className="text-3xl font-bold">Your Location</h2>
+            <div className="    mt-2">
+              <p>Latitude: {driverLocation.lat}</p>
+              <p>Longitude: {driverLocation.lng}</p>
+            </div>
           </div>
-          <h2 className="text-3xl font-bold">User Location</h2>
-          <div className="border-[1px solid #8da4f1] p-4 rounded-md shadow-md">
-            <p>Latitude: {userLocation.lat}</p>
-            <p>Longitude: {userLocation.lng}</p>
+          <div className="w-[50%] border border-[#8da4f1] rounded-md shadow-md p-4">
+            <h2 className="text-3xl font-bold">Driver Location</h2>
+            <div className=" mt-2  ">
+              <p>Latitude: {userLocation.lat}</p>
+              <p>Longitude: {userLocation.lng}</p>
+            </div>
           </div>
         </div>
-
         <div className="w-full max-h-[400px] mt-[2rem] border border-[#8da4f1] rounded-md shadow-md">
           <div className="w-full h-full">
             {userLocation && (
