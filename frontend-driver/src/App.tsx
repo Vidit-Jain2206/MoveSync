@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 import io, { Socket } from "socket.io-client";
+import { MapComponent } from "./MapComponent";
 
 const ENDPOINT = "http://localhost:3001";
-interface Location {
+export interface Location {
   lat: number;
   lng: number;
 }
@@ -103,6 +104,17 @@ function App() {
           <div className="border-[1px solid #8da4f1] p-4 rounded-md shadow-md">
             <p>Latitude: {userLocation.lat}</p>
             <p>Longitude: {userLocation.lng}</p>
+          </div>
+        </div>
+
+        <div className="w-full max-h-[400px] mt-[2rem] border border-[#8da4f1] rounded-md shadow-md">
+          <div className="w-full h-full">
+            {userLocation && (
+              <MapComponent
+                receivedCoordinates={userLocation}
+                coordinates={driverLocation}
+              />
+            )}
           </div>
         </div>
       </div>
