@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import "./App.css";
+
 import io, { Socket } from "socket.io-client";
+import { MapComponent } from "./MapComponent";
 
 const ENDPOINT = "http://localhost:3001";
-interface Location {
+export interface Location {
   lat: number;
   lng: number;
 }
@@ -71,14 +73,14 @@ function App() {
 
   return (
     <div className="w-screen h-screen flex flex-col bg-[#8da4f1]">
-      {/* navbar */}
+      {/* Navbar */}
       <div className="w-full p-4 bg-[#403d71] text-[#8da4f1] font-bold text-3xl">
         <h1 className="text-center">Welcome to Movesync</h1>
       </div>
 
-      {/* mainsection */}
+      {/* Main Section */}
       <div className="w-[95%] md:w-[80%] lg:w-[60%] mx-auto mt-[2rem]">
-        {/* room details*/}
+        {/* Room Details */}
         <div className="w-full mx-auto flex flex-col">
           <h1 className="text-3xl font-bold">Join a room</h1>
           <button
@@ -88,7 +90,7 @@ function App() {
             Generate OrderId
           </button>
           {orderId && (
-            <div className="border-[1px solid #8da4f1] p-4 rounded-md shadow-md">
+            <div className="border border-[#8da4f1] p-4 rounded-md shadow-md">
               <h2 className="text-2xl font-bold">Room ID: {orderId}</h2>
               {!isDriverJoined && (
                 <p>
@@ -100,17 +102,29 @@ function App() {
           )}
         </div>
 
-        {/* user location */}
+        {/* User Location */}
         <div className="w-full mx-auto mt-[2rem]">
           <h2 className="text-3xl font-bold">Your Location</h2>
-          <div className="border-[1px solid #8da4f1] p-4 rounded-md shadow-md">
+          <div className="border border-[#8da4f1] p-4 rounded-md shadow-md">
             <p>Latitude: {userLocation.lat}</p>
             <p>Longitude: {userLocation.lng}</p>
           </div>
           <h2 className="text-3xl font-bold">Driver Location</h2>
-          <div className="border-[1px solid #8da4f1] p-4 rounded-md shadow-md">
+          <div className="border border-[#8da4f1] p-4 rounded-md shadow-md">
             <p>Latitude: {driverLocation.lat}</p>
             <p>Longitude: {driverLocation.lng}</p>
+          </div>
+        </div>
+
+        {/* Map Section */}
+        <div className="w-full max-h-[400px] mt-[2rem] border border-[#8da4f1] rounded-md shadow-md">
+          <div className="w-full h-full">
+            {userLocation && (
+              <MapComponent
+                receivedCoordinates={driverLocation}
+                coordinates={userLocation}
+              />
+            )}
           </div>
         </div>
       </div>
@@ -119,3 +133,5 @@ function App() {
 }
 
 export default App;
+
+// Custom Marker Icons
