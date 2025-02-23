@@ -30,13 +30,14 @@ io.on("connection", (socket) => {
           return;
         }
 
-        const newOrder = new Order({
-          orderId: orderId,
-          status: "pending",
-        });
-
         // check if user and driver with same orderId exists or not
         if (role === "driver") {
+          const orderDetails = await Order.findOne({ orderId: orderId });
+          console.log(orderDetails);
+          if (!orderDetails) {
+            socket.emit("error", "No order found for this orderId");
+            return;
+          }
           const sockets = await io.in(orderId).fetchSockets();
           const hasDriver = sockets.some((s) => s.data.role === "driver");
           if (hasDriver) {
@@ -44,38 +45,49 @@ io.on("connection", (socket) => {
             return;
           }
 
-          newOrder.currentDriverLocation = location;
-          newOrder.driverId = id;
-          await newOrder.save();
+          orderDetails.currentDriverLocation = location;
+          orderDetails.driverId = id;
+          await orderDetails.save();
+          socket.join(orderId);
+          socket.data.role = role;
+          socket.data.orderId = orderId;
+          // notify to user that driver has joined
+          await pub.publish(
+            `notification:${orderId}`,
+            JSON.stringify({
+              type: "DRIVER_JOINED",
+              orderId: orderId,
+              driverId: id,
+              message: "Driver has joined",
+              timestamp: Date.now(),
+              driverLocation: location,
+              userLocation: orderDetails.userLocation,
+            })
+          );
         }
 
         if (role === "user") {
           try {
-            newOrder.userLocation = location;
-            newOrder.customerId = id;
+            const newOrder = new Order({
+              orderId: orderId,
+              status: "pending",
+              currentDriverLocation: null,
+              driverId: null,
+              userLocation: location,
+              customerId: id,
+            });
             await newOrder.save();
             sub.subscribe(`location:${orderId}`);
             sub.subscribe(`notification:${orderId}`);
+            socket.join(orderId);
+            socket.data.role = role;
+            socket.data.orderId = orderId;
           } catch (error) {
             console.error("Error subscribing to location:", error);
             socket.emit("error", "Error subscribing to location");
             return;
           }
         }
-        socket.join(orderId);
-        socket.data.role = role;
-        socket.data.orderId = orderId;
-        const order = await Order.find({
-          orderId: orderId,
-        }).select({
-          orderId: true,
-          status: "pending",
-          userLocation: true,
-          createdAt: true,
-          updatedAt: true,
-        });
-        socket.emit("joined:room", order[0].userLocation);
-        console.log(`${role} joined room: ${orderId}`);
       } catch (error) {
         console.error("Error joining room:", error);
         socket.emit("error", "Error joining room");
@@ -95,6 +107,32 @@ io.on("connection", (socket) => {
       }
       const orderId = socket.data.orderId;
       if (!orderId || socket.data.role !== "driver") return;
+
+      const orderDetails = await Order.findOne({ orderId: orderId }).select({
+        orderId: true,
+        userLocation: true,
+        createdAt: true,
+        updatedAt: true,
+        driverId: true,
+        currentDriverLocation: true,
+      });
+
+      console.log("orderDetails", orderDetails);
+
+      // if (orderDetails.userLocation === location) {
+      //   // means driver reached the location
+      //   await pub.publish(
+      //     `notification:${orderId}`,
+      //     JSON.stringify({
+      //       type: "DRIVER_REACHED",
+      //       orderId: orderId,
+      //       message: "Driver has reached",
+      //       timestamp: Date.now(),
+      //     })
+      //   );
+      //   socket.leave(orderId);
+      //   console.log(`Driver ${socket.id} left room: ${orderId}`);
+      // }
 
       // Publish to Redis
       try {
@@ -116,6 +154,8 @@ io.on("connection", (socket) => {
             timestamp: Date.now(),
           })
         );
+        // orderDetails.currentDriverLocation = location;
+        // await orderDetails.save();
       } catch (err) {
         console.error("Redis publish error:", err);
         socket.emit("error", "Failed to update location");
@@ -126,37 +166,21 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("driver:joined", async (orderId, driverId, driverLocation) => {
-    // send notification to user that driver has joined
-    await pub.publish(
-      `notification:${orderId}`,
-      JSON.stringify({
-        type: "DRIVER_JOINED",
-        orderId: orderId,
-        driverId: driverId,
-        message: "Driver has joined",
-        timestamp: Date.now(),
-        driverLocation: driverLocation,
-      })
-    );
-    console.log(`Driver ${driverId} joined room: ${orderId}`);
-  });
-
-  // driver reached
-  socket.on("driver:reached", async (orderId) => {
-    // send notification to user that driver has reached
-    await pub.publish(
-      `notification:${orderId}`,
-      JSON.stringify({
-        type: "DRIVER_REACHED",
-        orderId: orderId,
-        message: "Driver has reached",
-        timestamp: Date.now(),
-      })
-    );
-    socket.leave(orderId);
-    console.log(`Driver ${socket.id} left room: ${orderId}`);
-  });
+  // socket.on("driver:joined", async (orderId, driverId, driverLocation) => {
+  //   // send notification to user that driver has joined
+  //   await pub.publish(
+  //     `notification:${orderId}`,
+  //     JSON.stringify({
+  //       type: "DRIVER_JOINED",
+  //       orderId: orderId,
+  //       driverId: driverId,
+  //       message: "Driver has joined",
+  //       timestamp: Date.now(),
+  //       driverLocation: driverLocation,
+  //     })
+  //   );
+  //   console.log(`Driver ${driverId} joined room: ${orderId}`);
+  // });
 
   socket.on("disconnect", async () => {
     const orderId = socket.data.orderId;
@@ -185,13 +209,19 @@ sub.on("message", async (channel, message) => {
     const orderId = channel.split(":")[1];
     const data = JSON.parse(message);
     if (channelName === "notification") {
-      io.to(orderId).emit("notification", {
-        type: data.type,
-        orderId: data.orderId,
-        message: data.message,
-        timestamp: data.timestamp,
-        driverLocation: data.driverLocation,
-      });
+      if (data.type === "DRIVER_JOINED") {
+        const sockets = await io.in(orderId).fetchSockets();
+        sockets.forEach((socket) =>
+          socket.emit("notification", {
+            type: data.type,
+            orderId: data.orderId,
+            message: data.message,
+            timestamp: data.timestamp,
+            driverLocation: data.driverLocation,
+            userLocation: data.userLocation,
+          })
+        );
+      }
     }
     if (channelName === "location") {
       const sockets = (await io.in(orderId).fetchSockets()).filter(

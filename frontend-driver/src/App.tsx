@@ -41,10 +41,10 @@ function App() {
     return () => clearInterval(interval);
   }, [driverLocation]);
 
-  useEffect(() => {
-    if (socket && orderId)
-      socket.emit("update-location", "213124", driverLocation); // replace with actual driver id
-  }, [driverLocation, orderId, socket]);
+  // useEffect(() => {
+  //   if (socket && orderId)
+  //     socket.emit("update-location", "213124", driverLocation); // replace with actual driver id
+  // }, [driverLocation, orderId, socket]);
 
   useEffect(() => {
     const socket = io(ENDPOINT);
@@ -53,6 +53,18 @@ function App() {
       socket.disconnect();
     };
   }, []);
+
+  useEffect(() => {
+    if (socket && orderId) {
+      socket.on("notification", (data) => {
+        console.log(data);
+        if (data.type === "DRIVER_JOINED") {
+          setUserLocation(data.userLocation);
+          // alert(data.message);
+        }
+      });
+    }
+  });
 
   useEffect(() => {
     if (socket) {
@@ -74,7 +86,7 @@ function App() {
     try {
       if (socket) {
         socket.emit("join-room", orderId, "driver", "12341431", driverLocation);
-        socket.emit("driver:joined", orderId, "213124", driverLocation);
+        // socket.emit("driver:joined", orderId, "213124", driverLocation);
       }
     } catch (error) {
       console.error("Failed to join room:", error);
