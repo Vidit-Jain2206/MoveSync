@@ -56,6 +56,10 @@ function App() {
           // alert(data.message);
         }
       });
+
+      socket.on("driver:reached", (data) => {
+        console.log("driver:reached", data);
+      });
     }
   });
 

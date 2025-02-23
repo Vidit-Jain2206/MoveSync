@@ -20,16 +20,12 @@ function App() {
   });
   const [orderId, setOrderId] = useState("");
   const [socket, setSocket] = useState<Socket>();
+  const [isRoomJoined, setIsRoomJoined] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
       if (navigator.geolocation.getCurrentPosition) {
         navigator.geolocation.getCurrentPosition(async (position) => {
-          console.log(
-            new Date().toISOString(),
-            position.coords.latitude,
-            position.coords.longitude
-          );
           setDriverLocation({
             lat: position.coords.latitude,
             lng: position.coords.longitude,
@@ -41,10 +37,10 @@ function App() {
     return () => clearInterval(interval);
   }, [driverLocation]);
 
-  // useEffect(() => {
-  //   if (socket && orderId)
-  //     socket.emit("update-location", "213124", driverLocation); // replace with actual driver id
-  // }, [driverLocation, orderId, socket]);
+  useEffect(() => {
+    if (socket && isRoomJoined)
+      socket.emit("update-location", "213124", driverLocation); // replace with actual driver id
+  }, [driverLocation, orderId, socket, isRoomJoined]);
 
   useEffect(() => {
     const socket = io(ENDPOINT);
@@ -55,12 +51,12 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (socket && orderId) {
+    if (socket) {
       socket.on("notification", (data) => {
         console.log(data);
         if (data.type === "DRIVER_JOINED") {
           setUserLocation(data.userLocation);
-          // alert(data.message);
+          setIsRoomJoined(true);
         }
       });
     }
@@ -70,14 +66,6 @@ function App() {
     if (socket) {
       socket.on("error", (error) => {
         console.log(error);
-      });
-    }
-  });
-
-  useEffect(() => {
-    if (socket && orderId) {
-      socket.on("joined:room", (location) => {
-        setUserLocation(location);
       });
     }
   });

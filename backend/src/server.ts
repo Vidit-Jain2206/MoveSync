@@ -117,22 +117,25 @@ io.on("connection", (socket) => {
         currentDriverLocation: true,
       });
 
-      console.log("orderDetails", orderDetails);
-
-      // if (orderDetails.userLocation === location) {
-      //   // means driver reached the location
-      //   await pub.publish(
-      //     `notification:${orderId}`,
-      //     JSON.stringify({
-      //       type: "DRIVER_REACHED",
-      //       orderId: orderId,
-      //       message: "Driver has reached",
-      //       timestamp: Date.now(),
-      //     })
-      //   );
-      //   socket.leave(orderId);
-      //   console.log(`Driver ${socket.id} left room: ${orderId}`);
-      // }
+      if (
+        orderDetails &&
+        orderDetails?.userLocation.lat === location.lat &&
+        orderDetails?.userLocation.lng === location.lng
+      ) {
+        // means driver reached the location
+        await pub.publish(
+          `notification:${orderId}`,
+          JSON.stringify({
+            type: "DRIVER_REACHED",
+            orderId: orderId,
+            message: "Driver has reached",
+            timestamp: Date.now(),
+          })
+        );
+        return;
+        // socket.leave(orderId);
+        // console.log(`Driver ${socket.id} left room: ${orderId}`);
+      }
 
       // Publish to Redis
       try {
@@ -165,22 +168,6 @@ io.on("connection", (socket) => {
       socket.emit("error", "Error updating location");
     }
   });
-
-  // socket.on("driver:joined", async (orderId, driverId, driverLocation) => {
-  //   // send notification to user that driver has joined
-  //   await pub.publish(
-  //     `notification:${orderId}`,
-  //     JSON.stringify({
-  //       type: "DRIVER_JOINED",
-  //       orderId: orderId,
-  //       driverId: driverId,
-  //       message: "Driver has joined",
-  //       timestamp: Date.now(),
-  //       driverLocation: driverLocation,
-  //     })
-  //   );
-  //   console.log(`Driver ${driverId} joined room: ${orderId}`);
-  // });
 
   socket.on("disconnect", async () => {
     const orderId = socket.data.orderId;
@@ -221,6 +208,13 @@ sub.on("message", async (channel, message) => {
             userLocation: data.userLocation,
           })
         );
+      }
+
+      if (data.type === "DRIVER_REACHED") {
+        const sockets = (await io.in(orderId).fetchSockets()).filter(
+          (socket) => socket.data.role === "user"
+        );
+        sockets.map((socket) => socket.emit("driver:reached", data));
       }
     }
     if (channelName === "location") {
